@@ -286,7 +286,7 @@
                 <strong>代币名称：</strong>TimeCoin (TIME)<br>
                 <strong>精度：</strong>0 位（整数）
             </div>
-            <button class="btn" onclick="loadStats()">🔄 刷新数据</button>
+            <button class="btn" onclick="loadAllData()">🔄 刷新数据</button>
         </div>
 
         <!-- 余额查询 -->
@@ -334,10 +334,8 @@
             web3 = new Web3('https://polygon-rpc.com');
             contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
             
-            // 加载数据
-            await loadStats();
-            await loadIssueRecords();
-            await loadTransferRecords();
+            // 加载所有数据
+            await loadAllData();
             
             // 检查是否已连接钱包
             if (window.ethereum) {
@@ -371,7 +369,7 @@
                 updateWalletStatus(true, userAddress);
                 
                 // 重新加载数据
-                await loadStats();
+                await loadAllData();
                 
             } catch (error) {
                 console.error('连接钱包失败:', error);
@@ -395,8 +393,8 @@
                             chainId: '0x89',
                             chainName: 'Polygon Mainnet',
                             nativeCurrency: {
-                                name: 'MATIC',
-                                symbol: 'MATIC',
+                                name: 'POL',
+                                symbol: 'POL',
                                 decimals: 18
                             },
                             rpcUrls: ['https://polygon-rpc.com'],
@@ -419,6 +417,13 @@
                 statusEl.classList.remove('connected');
                 textEl.textContent = '未连接钱包';
             }
+        }
+
+        // 加载所有数据
+        async function loadAllData() {
+            await loadStats();
+            await loadIssueRecords();
+            await loadTransferRecords();
         }
 
         // 加载统计数据
@@ -459,7 +464,7 @@
             }
         }
 
-        // 加载发行记录
+        // 加载发行记录 - 使用 getIssueRecords 函数
         async function loadIssueRecords() {
             const container = document.getElementById('issueRecords');
             
@@ -471,10 +476,13 @@
                     return;
                 }
                 
+                // 使用 getIssueRecords 函数批量获取记录（从0开始，获取全部）
+                const records = await contract.methods.getIssueRecords(0, count).call();
+                
                 let html = '';
-                // 倒序显示最新的 10 条
-                for (let i = Math.max(0, count - 10); i < count; i++) {
-                    const record = await contract.methods.issueRecords(i).call();
+                // 倒序显示（最新的在前）
+                for (let i = records.length - 1; i >= 0; i--) {
+                    const record = records[i];
                     const date = new Date(Number(record.timestamp) * 1000).toLocaleString('zh-CN');
                     
                     html += `
@@ -501,7 +509,7 @@
             }
         }
 
-        // 加载转账记录
+        // 加载转账记录 - 通过事件日志获取（更可靠）
         async function loadTransferRecords() {
             const container = document.getElementById('transferRecords');
             
@@ -513,24 +521,32 @@
                     return;
                 }
                 
+                // 尝试通过事件日志获取转账记录
+                const events = await contract.getPastEvents('Transfer', {
+                    fromBlock: 0,
+                    toBlock: 'latest'
+                });
+                
                 let html = '';
-                // 倒序显示最新的 10 条
-                for (let i = Math.max(0, count - 10); i < count; i++) {
-                    const record = await contract.methods.transferRecords(i).call();
-                    const date = new Date(Number(record.timestamp) * 1000).toLocaleString('zh-CN');
+                // 倒序显示（最新的在前），最多显示10条
+                const displayEvents = events.slice(-10).reverse();
+                
+                for (let i = 0; i < displayEvents.length; i++) {
+                    const event = displayEvents[i];
+                    const returnValues = event.returnValues;
+                    const date = new Date(Number(returnValues.timestamp) * 1000).toLocaleString('zh-CN');
                     
                     html += `
                         <div class="record-item">
                             <div class="record-header">
-                                <span class="record-type">转账 #${i + 1}</span>
+                                <span class="record-type">转账 #${returnValues.recordIndex}</span>
                                 <span class="record-time">${date}</span>
                             </div>
                             <div class="record-details">
-                                <strong>发送方：</strong><span class="address">${record.from}</span><br>
-                                <strong>接收方：</strong><span class="address">${record.to}</span><br>
-                                <strong>数量：</strong>${record.amount} TIME<br>
-                                <strong>日期：</strong>${record.date}<br>
-                                <strong>备注：</strong>${record.memo || '无'}
+                                <strong>发送方：</strong><span class="address">${returnValues.from}</span><br>
+                                <strong>接收方：</strong><span class="address">${returnValues.to}</span><br>
+                                <strong>数量：</strong>${returnValues.amount} TIME<br>
+                                <strong>日期：</strong>${returnValues.date}
                             </div>
                         </div>
                     `;
@@ -556,6 +572,11 @@
                     userAddress = null;
                     updateWalletStatus(false);
                 }
+            });
+            
+            // 监听网络变化
+            window.ethereum.on('chainChanged', () => {
+                window.location.reload();
             });
         }
     </script>

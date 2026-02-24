@@ -456,7 +456,7 @@
                 resultEl.innerHTML = `
                     <div class="success">
                         <strong>地址：</strong><span class="address">${address}</span><br>
-                        <strong>余额：</strong>${balance} TIME
+                        <strong>余额：</strong>${balance} 时间币
                     </div>
                 `;
             } catch (error) {
@@ -517,11 +517,11 @@
                 const count = await contract.methods.getTransferRecordCount().call();
                 
                 if (count == 0) {
-                    container.innerHTML = '<div class="loading">暂无转账记录</div>';
+                    container.innerHTML = '<div class="loading">暂无转让记录</div>';
                     return;
                 }
                 
-                // 尝试通过事件日志获取转账记录
+                // 尝试通过事件日志获取转让记录
                 const events = await contract.getPastEvents('Transfer', {
                     fromBlock: 0,
                     toBlock: 'latest'
@@ -539,7 +539,7 @@
                     html += `
                         <div class="record-item">
                             <div class="record-header">
-                                <span class="record-type">转账 #${returnValues.recordIndex}</span>
+                                <span class="record-type">转让 #${returnValues.recordIndex}</span>
                                 <span class="record-time">${date}</span>
                             </div>
                             <div class="record-details">
@@ -555,7 +555,7 @@
                 container.innerHTML = html;
                 
             } catch (error) {
-                console.error('加载转账记录失败:', error);
+                console.error('加载转让记录失败:', error);
                 container.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
             }
         }
